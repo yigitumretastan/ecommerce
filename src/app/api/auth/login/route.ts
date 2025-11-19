@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { encrypt } from '@/lib/auth';
+import { encrypt } from '@/lib/jwt';
 import { cookies } from 'next/headers';
 
 const prisma = new PrismaClient();
