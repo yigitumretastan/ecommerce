@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { encrypt } from '@/lib/jwt';
 import { cookies } from 'next/headers';
-
-const prisma = new PrismaClient();
+import dbConnect from '@/lib/db';
+import { User } from '@/models/User';
 
 export async function POST(request: NextRequest) {
     try {
+        await dbConnect();
+
         const body = await request.json();
         const { email, password } = body;
 
@@ -18,9 +19,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const user = await prisma.user.findUnique({
-            where: { email },
-        });
+        const user = await User.findOne({ email });
 
         if (!user) {
             return NextResponse.json(
@@ -41,7 +40,7 @@ export async function POST(request: NextRequest) {
         // Create session
         const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
         const session = await encrypt({
-            user: { id: user.id, email: user.email, role: user.role },
+            user: { id: user._id.toString(), email: user.email, role: user.role },
             expires
         });
 

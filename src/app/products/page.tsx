@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import ProductCard from '@/components/ProductCard';
-
-const prisma = new PrismaClient();
+import dbConnect from '@/lib/db';
+import { Product } from '@/models/Product';
 
 interface Product {
     id: string;
@@ -15,13 +14,14 @@ interface Product {
 }
 
 async function getProducts(): Promise<Product[]> {
-    const products = await prisma.product.findMany({
-        orderBy: { createdAt: 'desc' },
-    });
+    await dbConnect();
+    const products = await Product.find({}).sort({ createdAt: -1 }).lean();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return products.map((product: any) => ({
         ...product,
+        _id: product._id.toString(),
+        id: product._id.toString(),
         price: product.price.toString()
     }));
 }

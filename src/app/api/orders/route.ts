@@ -1,34 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { getSession } from '@/lib/auth';
-
-const prisma = new PrismaClient();
+import dbConnect from '@/lib/db';
+import { Order } from '@/models/Order';
+import { Product } from '@/models/Product';
+import mongoose from 'mongoose';
 
 export async function GET() {
     try {
+        await dbConnect();
+
         const session = await getSession();
         if (!session || session.user.role !== 'ADMIN') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const orders = await prisma.order.findMany({
-            include: {
-                user: {
-                    select: { email: true },
-                },
-                items: {
-                    include: {
-                        product: true,
-                    },
-                },
-            },
-            orderBy: {
-                createdAt: 'desc',
-            },
-        });
+        const orders = await Order.find({})
+            .populate('userId', 'email')
+            .populate('items.productId')
+            .sort({ createdAt: -1 });
 
         return NextResponse.json(orders);
-    } catch {
+    } catch (error) {
+        console.error('Error fetching orders:', error);
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }
@@ -37,18 +30,15 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-    try {
-        const session = await getSession();
-        // For now, let's allow guest checkout or require login? 
-        // The plan said "Authentication (Admin/User)", so let's assume we need a user.
-        // But wait, I didn't implement customer signup. 
-        // For simplicity, I'll allow anyone to create an order if I can't easily get a user ID, 
-        // BUT the schema requires userId.
-        // So I MUST have a user.
-        // I'll assume the user is logged in. If not, I should probably implement signup or guest checkout.
-        // Given the constraints, I'll require login.
+    const mongoSession = await mongoose.startSession();
+    mongoSession.startTransaction();
 
+    try {
+        await dbConnect();
+
+        const session = await getSession();
         if (!session) {
+            await mongoSession.abortTransaction();
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -56,64 +46,59 @@ export async function POST(request: NextRequest) {
         const { items } = body; // items: { productId: string, quantity: number }[]
 
         if (!items || items.length === 0) {
+            await mongoSession.abortTransaction();
             return NextResponse.json({ error: 'No items in order' }, { status: 400 });
         }
 
-        // Start transaction
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const order = await prisma.$transaction(async (tx: any) => {
-            let total = 0;
-            const orderItemsData = [];
+        let total = 0;
+        const orderItemsData = [];
 
-            for (const item of items) {
-                const product = await tx.product.findUnique({
-                    where: { id: item.productId },
-                });
+        for (const item of items) {
+            const product = await Product.findById(item.productId).session(mongoSession);
 
-                if (!product) {
-                    throw new Error(`Product ${item.productId} not found`);
-                }
-
-                if (product.stock < item.quantity) {
-                    throw new Error(`Insufficient stock for ${product.name}`);
-                }
-
-                // Update stock
-                await tx.product.update({
-                    where: { id: item.productId },
-                    data: { stock: product.stock - item.quantity },
-                });
-
-                total += Number(product.price) * item.quantity;
-                orderItemsData.push({
-                    productId: item.productId,
-                    quantity: item.quantity,
-                    price: product.price,
-                });
+            if (!product) {
+                await mongoSession.abortTransaction();
+                throw new Error(`Product ${item.productId} not found`);
             }
 
-            // Create order
-            return await tx.order.create({
-                data: {
-                    userId: session.user.id,
-                    total,
-                    items: {
-                        create: orderItemsData,
-                    },
-                },
-                include: {
-                    items: true,
-                },
-            });
-        });
+            if (product.stock < item.quantity) {
+                await mongoSession.abortTransaction();
+                throw new Error(`Insufficient stock for ${product.name}`);
+            }
 
-        return NextResponse.json(order);
+            // Update stock
+            product.stock -= item.quantity;
+            await product.save({ session: mongoSession });
+
+            total += product.price * item.quantity;
+            orderItemsData.push({
+                productId: item.productId,
+                quantity: item.quantity,
+                price: product.price,
+            });
+        }
+
+        // Create order
+        const order = await Order.create(
+            [{
+                userId: session.user.id,
+                total,
+                items: orderItemsData,
+            }],
+            { session: mongoSession }
+        );
+
+        await mongoSession.commitTransaction();
+        return NextResponse.json(order[0]);
     } catch (error: unknown) {
+        await mongoSession.abortTransaction();
         console.error('Create order error:', error);
         const message = error instanceof Error ? error.message : 'Internal server error';
         return NextResponse.json(
             { error: message },
             { status: 500 }
         );
+    } finally {
+        mongoSession.endSession();
     }
 }

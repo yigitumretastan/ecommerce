@@ -1,41 +1,39 @@
-import { PrismaClient } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-
-const prisma = new PrismaClient();
+import dbConnect from '@/lib/db';
+import { Order } from '@/models/Order';
 
 interface Order {
     id: string;
     user: { email: string };
-    total: number | string; // Decimal
+    total: number | string;
     status: string;
     createdAt: Date;
 }
 
 async function getOrders(): Promise<Order[]> {
-    const orders = await prisma.order.findMany({
-        include: {
-            user: { select: { email: true } },
-            items: { include: { product: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-    });
+    await dbConnect();
+    const orders = await Order.find({})
+        .populate('userId', 'email')
+        .sort({ createdAt: -1 })
+        .lean();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return orders.map((order: any) => ({
         ...order,
+        _id: order._id.toString(),
+        id: order._id.toString(),
+        user: { email: order.userId?.email || 'Unknown' },
         total: order.total.toString()
     }));
 }
 
 async function updateStatus(formData: FormData) {
     'use server';
+    await dbConnect();
     const id = formData.get('id') as string;
     const status = formData.get('status') as string;
 
-    await prisma.order.update({
-        where: { id },
-        data: { status },
-    });
+    await Order.findByIdAndUpdate(id, { status });
     revalidatePath('/admin/orders');
 }
 

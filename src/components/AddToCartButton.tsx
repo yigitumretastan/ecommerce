@@ -6,7 +6,7 @@ import { useState } from 'react';
 interface Product {
     id: string;
     name: string;
-    price: number | string; // Prisma Decimal is string-like or number
+    price: number | string; 
     imageUrl: string;
 }
 

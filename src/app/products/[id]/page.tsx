@@ -1,9 +1,8 @@
 import Image from 'next/image';
-import { PrismaClient } from '@prisma/client';
 import AddToCartButton from '@/components/AddToCartButton';
 import { notFound } from 'next/navigation';
-
-const prisma = new PrismaClient();
+import dbConnect from '@/lib/db';
+import { Product } from '@/models/Product';
 
 interface Product {
     id: string;
@@ -17,15 +16,20 @@ interface Product {
 }
 
 async function getProduct(id: string): Promise<Product | null> {
-    const product = await prisma.product.findUnique({
-        where: { id },
-    });
+    await dbConnect();
+    const product = await Product.findById(id).lean();
 
     if (!product) return null;
 
     return {
-        ...product,
-        price: product.price.toString()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(product as any),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        _id: (product as any)._id.toString(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        id: (product as any)._id.toString(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        price: (product as any).price.toString()
     };
 }
 

@@ -1,9 +1,8 @@
 import Image from 'next/image';
-import { PrismaClient } from '@prisma/client';
 import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
-
-const prisma = new PrismaClient();
+import dbConnect from '@/lib/db';
+import { Product } from '@/models/Product';
 
 interface Product {
     id: string;
@@ -17,21 +16,23 @@ interface Product {
 }
 
 async function getProducts(): Promise<Product[]> {
-    const products = await prisma.product.findMany({
-        orderBy: { createdAt: 'desc' },
-    });
+    await dbConnect();
+    const products = await Product.find({}).sort({ createdAt: -1 }).lean();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return products.map((product: any) => ({
         ...product,
+        _id: product._id.toString(),
+        id: product._id.toString(),
         price: product.price.toString()
     }));
 }
 
 async function deleteProduct(formData: FormData) {
     'use server';
+    await dbConnect();
     const id = formData.get('id') as string;
-    await prisma.product.delete({ where: { id } });
+    await Product.findByIdAndDelete(id);
     revalidatePath('/admin/products');
 }
 

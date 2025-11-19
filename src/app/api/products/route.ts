@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { getSession } from '@/lib/auth';
-
-const prisma = new PrismaClient();
+import dbConnect from '@/lib/db';
+import { Product } from '@/models/Product';
 
 export async function GET() {
     try {
-        const products = await prisma.product.findMany();
+        await dbConnect();
+        const products = await Product.find({}).sort({ createdAt: -1 });
         return NextResponse.json(products);
-    } catch {
+    } catch (error) {
+        console.error('Error fetching products:', error);
         return NextResponse.json(
-            { error: 'Internal server error' },
+            { error: 'Failed to fetch products' },
             { status: 500 }
         );
     }
@@ -18,6 +19,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
     try {
+        await dbConnect();
+
         const session = await getSession();
         if (!session || session.user.role !== 'ADMIN') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -26,21 +29,19 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { name, description, price, imageUrl, stock } = body;
 
-        const product = await prisma.product.create({
-            data: {
-                name,
-                description,
-                price,
-                imageUrl,
-                stock: parseInt(stock),
-            },
+        const product = await Product.create({
+            name,
+            description,
+            price: parseFloat(price),
+            imageUrl,
+            stock: parseInt(stock),
         });
 
-        return NextResponse.json(product);
-    } catch {
-        console.error('Create product error:');
+        return NextResponse.json(product, { status: 201 });
+    } catch (error) {
+        console.error('Error creating product:', error);
         return NextResponse.json(
-            { error: 'Internal server error' },
+            { error: 'Failed to create product' },
             { status: 500 }
         );
     }
