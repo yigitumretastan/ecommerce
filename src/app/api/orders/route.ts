@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Start transaction
-        const order = await prisma.$transaction(async (tx) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const order = await prisma.$transaction(async (tx: any) => {
             let total = 0;
             const orderItemsData = [];
 

@@ -1,6 +1,14 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { Product } from '@prisma/client';
+
+interface Product {
+    id: string;
+    name: string;
+    description: string;
+    price: number | string; // Decimal serialized
+    imageUrl: string;
+    stock: number;
+}
 
 interface ProductCardProps {
     product: Product;

@@ -1,9 +1,20 @@
 import Image from 'next/image';
-import { PrismaClient, Product } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
 
 const prisma = new PrismaClient();
+
+interface Product {
+    id: string;
+    name: string;
+    description: string;
+    price: number | string;
+    imageUrl: string;
+    stock: number;
+    createdAt: Date;
+    updatedAt: Date;
+}
 
 async function getProducts(): Promise<Product[]> {
     return await prisma.product.findMany({
