@@ -20,7 +20,8 @@ async function getOrders(): Promise<Order[]> {
         orderBy: { createdAt: 'desc' },
     });
 
-    return orders.map(order => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return orders.map((order: any) => ({
         ...order,
         total: order.total.toString()
     }));

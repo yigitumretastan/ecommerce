@@ -19,7 +19,8 @@ async function getProducts(): Promise<Product[]> {
         orderBy: { createdAt: 'desc' },
     });
 
-    return products.map(product => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return products.map((product: any) => ({
         ...product,
         price: product.price.toString()
     }));
