@@ -3,10 +3,26 @@ import ProductCard from '@/components/ProductCard';
 
 const prisma = new PrismaClient();
 
-async function getProducts() {
-    return await prisma.product.findMany({
+interface Product {
+    id: string;
+    name: string;
+    description: string;
+    price: string;
+    imageUrl: string;
+    stock: number;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+async function getProducts(): Promise<Product[]> {
+    const products = await prisma.product.findMany({
         orderBy: { createdAt: 'desc' },
     });
+
+    return products.map(product => ({
+        ...product,
+        price: product.price.toString()
+    }));
 }
 
 export default async function ProductsPage() {

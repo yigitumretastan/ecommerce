@@ -3,12 +3,28 @@ import ProductCard from '@/components/ProductCard';
 
 const prisma = new PrismaClient();
 
-async function getFeaturedProducts() {
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: string;
+  imageUrl: string;
+  stock: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+async function getFeaturedProducts(): Promise<Product[]> {
   // In a real app, we might have a 'featured' flag
-  return await prisma.product.findMany({
+  const products = await prisma.product.findMany({
     take: 6,
     orderBy: { createdAt: 'desc' },
   });
+
+  return products.map(product => ({
+    ...product,
+    price: product.price.toString()
+  }));
 }
 
 export default async function Home() {

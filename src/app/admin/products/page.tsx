@@ -17,9 +17,14 @@ interface Product {
 }
 
 async function getProducts(): Promise<Product[]> {
-    return await prisma.product.findMany({
+    const products = await prisma.product.findMany({
         orderBy: { createdAt: 'desc' },
     });
+
+    return products.map(product => ({
+        ...product,
+        price: product.price.toString()
+    }));
 }
 
 async function deleteProduct(formData: FormData) {

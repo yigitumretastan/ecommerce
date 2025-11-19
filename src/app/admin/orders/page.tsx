@@ -3,14 +3,27 @@ import { revalidatePath } from 'next/cache';
 
 const prisma = new PrismaClient();
 
-async function getOrders() {
-    return await prisma.order.findMany({
+interface Order {
+    id: string;
+    user: { email: string };
+    total: number | string; // Decimal
+    status: string;
+    createdAt: Date;
+}
+
+async function getOrders(): Promise<Order[]> {
+    const orders = await prisma.order.findMany({
         include: {
             user: { select: { email: true } },
             items: { include: { product: true } },
         },
         orderBy: { createdAt: 'desc' },
     });
+
+    return orders.map(order => ({
+        ...order,
+        total: order.total.toString()
+    }));
 }
 
 async function updateStatus(formData: FormData) {
@@ -70,10 +83,10 @@ export default async function AdminOrdersPage() {
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <span
                                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${order.status === 'COMPLETED'
-                                                ? 'bg-green-100 text-green-800'
-                                                : order.status === 'CANCELLED'
-                                                    ? 'bg-red-100 text-red-800'
-                                                    : 'bg-yellow-100 text-yellow-800'
+                                            ? 'bg-green-100 text-green-800'
+                                            : order.status === 'CANCELLED'
+                                                ? 'bg-red-100 text-red-800'
+                                                : 'bg-yellow-100 text-yellow-800'
                                             }`}
                                     >
                                         {order.status}

@@ -5,10 +5,28 @@ import { notFound } from 'next/navigation';
 
 const prisma = new PrismaClient();
 
-async function getProduct(id: string) {
-    return await prisma.product.findUnique({
+interface Product {
+    id: string;
+    name: string;
+    description: string;
+    price: string;
+    imageUrl: string;
+    stock: number;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+async function getProduct(id: string): Promise<Product | null> {
+    const product = await prisma.product.findUnique({
         where: { id },
     });
+
+    if (!product) return null;
+
+    return {
+        ...product,
+        price: product.price.toString()
+    };
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
